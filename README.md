@@ -9,6 +9,7 @@ Simple [Ulauncher](https://ulauncher.io) extension to quickly toggle and connect
 ## Features
 
 - **WireGuard Support**: Fully automated WireGuard integration. Just paste your Private Key and connect.
+- **Anti-DNS Leak Technology**: Integrated custom DNS management (supporting `systemd-resolved` and `resolvconf`) to prevent DNS leaks on OpenVPN connections—a critical fix not present in the original extension.
 - **OpenVPN Support**: Support for traditional `.ovpn` profiles.
 - **Auto-Discovery**: Fetches the latest server list (Standard, Multi-Hop, Static IP) directly from Surfshark's API.
 - **Smart Search**: Supports searching by country, city, and common aliases (e.g., "UK", "UAE", "HK").
@@ -71,7 +72,7 @@ Open Ulauncher and type the set up keyword (defaults to `surf`).
 ## Credits
 
 - **Flag Icons**: This project uses the beautiful rounded flags from the [circle-flags](https://github.com/HatScripts/circle-flags) project by [HatScripts](https://github.com/HatScripts).
-- **Inspiration**: This project is a significantly refactored and modernized version of the original [ulauncher-surfshark](https://github.com/saini-anshul/ulauncher-surfshark) extension by [Anshul Saini](https://github.com/saini-anshul). It has been updated for Python 3, WireGuard support, and modern Surfshark APIs.
+- **Inspiration**: This project is a significantly refactored and modernized version of the original [ulauncher-surfshark](https://github.com/saini-anshul/ulauncher-surfshark) extension by [Anshul Saini](https://github.com/saini-anshul). It has been updated for Python 3, WireGuard support, modern Surfshark APIs, and **fixes critical DNS leak issues** that were present in the original implementation.
 
 ## License
 
