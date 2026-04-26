@@ -188,21 +188,7 @@ class Surf:
         else:
             # WireGuard connection
             target_server = next((s for s in self.api_servers if s.get("connectionName") == server), None)
-            if target_server and wg_privkey:
-                iface_name = "surfshark_wg"
-                # Default DNS servers provided by Surfshark for manual configurations
-                dns_servers = wg_dns if wg_dns else "162.252.172.57, 149.154.159.92"
-                config_content = f"""[Interface]
-PrivateKey = {wg_privkey}
-Address = 10.14.0.2/16
-DNS = {dns_servers}
-
-[Peer]
-PublicKey = {target_server['pubKey']}
-AllowedIPs = 0.0.0.0/0
-Endpoint = {target_server['connectionName']}:51820
-"""
-                success = self.wg_client.connect_with_config(iface_name, config_content)
+            success = self.wg_client.connect(server, target_server=target_server, wg_privkey=wg_privkey, wg_dns=wg_dns)
 
         if success:
             time.sleep(2)
@@ -243,27 +229,9 @@ Endpoint = {target_server['connectionName']}:51820
         if profile_name:
             return self.populate_server_object(self.get_server_details(profile_name), profile_name)
         
-        profile_name = self.wg_client.get_status()
-        if profile_name:
-            # profile_name will be 'surfshark_wg.conf'
-            try:
-                config_path = os.path.join(self.wireguard_dir_path, profile_name)
-                if os.path.exists(config_path):
-                    with open(config_path, 'r') as f:
-                        content = f.read()
-                        match = re.search(r'Endpoint = (.*?):51820', content)
-                        if match:
-                            connection_name = match.group(1)
-                            return self.populate_server_object(self.get_server_details(connection_name), connection_name)
-            except Exception:
-                pass
-
-            return {
-                "country": "WireGuard",
-                "city": "Connected",
-                "flag_file": self.flag_file(""), # Fallback to icon.svg
-                "conn_type": "WireGuard"
-            }
+        connection_name = self.wg_client.get_status()
+        if connection_name:
+            return self.populate_server_object(self.get_server_details(connection_name), connection_name)
             
         return None
     

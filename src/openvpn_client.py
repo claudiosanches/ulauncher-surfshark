@@ -1,7 +1,7 @@
 import os
 import subprocess
 import re
-from typing import Optional
+from typing import Optional, Any
 from .vpn_client import VPNClient
 
 class OpenVPNClient(VPNClient):
@@ -37,12 +37,13 @@ class OpenVPNClient(VPNClient):
         """Checks if OpenVPN is installed."""
         return bool(self.installed_path)
 
-    def connect(self, server_profile: str) -> bool:
+    def connect(self, server_profile: str, **kwargs: Any) -> bool:
         """
         Connects to a Surfshark server via OpenVPN.
 
         Args:
             server_profile: The filename of the .ovpn profile.
+            **kwargs: Unused in this implementation.
 
         Returns:
             True if initiated, False otherwise.

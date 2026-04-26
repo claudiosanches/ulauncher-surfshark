@@ -1,16 +1,17 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Any
 
 class VPNClient(ABC):
     """Abstract base class for VPN client implementations."""
 
     @abstractmethod
-    def connect(self, server_profile: str) -> bool:
+    def connect(self, server_identifier: str, **kwargs: Any) -> bool:
         """
-        Connects to a VPN server using the specified profile.
+        Connects to a VPN server using the specified identifier.
 
         Args:
-            server_profile: The filename of the server configuration profile.
+            server_identifier: The identifier (filename or connection name) of the server.
+            **kwargs: Additional configuration parameters required by specific implementations.
 
         Returns:
             True if the connection process was initiated successfully, False otherwise.
