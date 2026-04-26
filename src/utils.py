@@ -53,6 +53,16 @@ class Utils:
                 "action": "wg"
             },
             {
+                "name": "Static WireGuard",
+                "description": "Connect to VPN with Static IP - WireGuard",
+                "action": "wg_st"
+            },
+            {
+                "name": "Multipoint WireGuard",
+                "description": "Connect to VPN with Multipoint WireGuard",
+                "action": "wg_mp"
+            },
+            {
                 "name": "UDP",
                 "description": "Connect to VPN using UDP",
                 "action": "udp"

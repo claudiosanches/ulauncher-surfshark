@@ -47,12 +47,14 @@ class KeywordQueryEventListener(EventListener):
         if not command:
             server_connected = extension.get_connection_status()
             if server_connected:
+                secured_label = "Secured" if server_connected.get("secured") else "Not Secured"
+                ip_addr = server_connected.get("ip", "Unknown")
                 items.extend(
                     [
                         ExtensionResultItem(
                             icon=Utils.get_path(f'images/flags/{server_connected["flag_file"]}'),
-                            name="Connected",
-                            description=(server_connected["country"] + " - " + server_connected["city"] + ": " + server_connected["conn_type"]),
+                            name=f"Connected to {server_connected['country']} - {server_connected['city']}",
+                            description=f"{secured_label} • {ip_addr} • {server_connected['conn_type']}",
                             highlightable=False,
                             on_enter=SetUserQueryAction(
                                 f'{extension.keyword or " "} '

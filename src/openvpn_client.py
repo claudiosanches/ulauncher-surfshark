@@ -41,8 +41,6 @@ if [[ "$script_type" == "up" ]]; then
         resolvectl dns "$dev" "${DNS_SERVERS[@]}"
         resolvectl domain "$dev" "~."
         resolvectl default-route "$dev" yes
-        # Set higher priority for this interface's DNS
-        resolvectl set-dns-priority "$dev" -- -10
     elif command -v resolvconf &> /dev/null; then
         for dns in "${DNS_SERVERS[@]}"; do
             echo "nameserver $dns"
@@ -130,12 +128,21 @@ fi
     def get_status(self) -> Optional[str]:
         """
         Checks if an OpenVPN process is running and extracts the profile name.
+        Also verifies if a tun interface exists.
 
         Returns:
             The filename of the connected .ovpn profile if active, None otherwise.
         """
         if not self.is_installed():
             return None
+
+        # Check for tun interface existence as a more reliable indicator
+        try:
+            interfaces = os.listdir('/sys/class/net')
+            if not any(iface.startswith('tun') for iface in interfaces):
+                return None
+        except Exception:
+            pass
 
         try:
             pgrep = subprocess.run(["pgrep", "-af", f"{self.installed_path} --config"], capture_output=True, text=True)

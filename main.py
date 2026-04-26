@@ -18,7 +18,7 @@ from src.listeners import (
 
 class SurfExtension(Extension):
     """Main extension class for Surfshark Ulauncher integration."""
-    
+
     keyword = None
     max_server_entries = None
     uname = None
@@ -34,7 +34,7 @@ class SurfExtension(Extension):
         self.subscribe(PreferencesEvent, PreferencesEventListener())
         self.subscribe(PreferencesUpdateEvent, PreferencesUpdateEventListener())
         self.surf = Surf()
-    
+
     def update_credentials(self):
         """Ensures service credentials file is present and up-to-date."""
         if not self.surf.is_credential_file_exists():
@@ -45,11 +45,11 @@ class SurfExtension(Extension):
     def update_username(self, uname):
         """Updates the service username in the configuration file."""
         self.surf.update_credential_file(uname, None)
-        
+
     def update_password(self, passwd):
         """Updates the service password in the configuration file."""
         self.surf.update_credential_file(None, passwd)
-    
+
     def filter_server_list(self, query, server_type, server_list):
         """
         Filters a list of servers based on a search query and connection type.
@@ -65,13 +65,13 @@ class SurfExtension(Extension):
         self.update_credentials()
         query = query.lower() if query else ""
         if query:
-            return [s for s in server_list if ((s["country"].lower().startswith(query) 
-                                                    or s["alt_word"].lower().startswith(query) 
+            return [s for s in server_list if ((s["country"].lower().startswith(query)
+                                                    or s["alt_word"].lower().startswith(query)
                                                     or s["city"].lower().startswith(query))
                                      and server_type in s["conn_type"].lower())]
         else:
             return [s for s in server_list if server_type in s["conn_type"].lower()]
-    
+
     def get_server_result_items(self, query, server_type):
         """
         Generates Ulauncher result items for VPN servers.
@@ -86,9 +86,13 @@ class SurfExtension(Extension):
         server_type = server_type.lower() if server_type else "udp"
         items = []
         data = []
-        
+
         if server_type == 'wg':
-            data = self.filter_server_list(query, '', self.surf.wg_servers)
+            data = self.filter_server_list(query, '', self.surf.wg_reg_servers)
+        elif server_type == 'wg_st':
+            data = self.filter_server_list(query, '', self.surf.wg_st_servers)
+        elif server_type == 'wg_mp':
+            data = self.filter_server_list(query, '', self.surf.wg_mp_servers)
         elif server_type.startswith('mp'):
             server_type = server_type.replace('mp_', '')
             data = self.filter_server_list(query, server_type, self.surf.mp_servers)
@@ -97,7 +101,7 @@ class SurfExtension(Extension):
             data = self.filter_server_list(query, server_type, self.surf.st_servers)
         else:
             data = self.filter_server_list(query, server_type, self.surf.reg_servers)
-            
+
         for server in data[0:self.max_server_entries]:
             items.append(
                 ExtensionResultItem(
@@ -113,7 +117,7 @@ class SurfExtension(Extension):
                 )
             )
         return items
-    
+
     def get_connection_status(self):
         """Retrieves the current VPN connection status."""
         return self.surf.get_status()

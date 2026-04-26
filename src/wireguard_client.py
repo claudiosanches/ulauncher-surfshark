@@ -53,7 +53,7 @@ class WireGuardClient(VPNClient):
 
         iface_name = "surfshark_wg"
         dns_servers = wg_dns if wg_dns else "162.252.172.57, 149.154.159.92"
-        
+
         config_content = f"""[Interface]
 PrivateKey = {wg_privkey}
 Address = 10.14.0.2/16
@@ -102,8 +102,13 @@ Endpoint = {target_server['connectionName']}:51820
         """
         Checks for active WireGuard interfaces managed by this extension
         and extracts the connection name from the config file.
+        Also verifies if the interface exists in /sys/class/net.
         """
         if not self.is_installed():
+            return None
+
+        iface_name = "surfshark_wg"
+        if not os.path.exists(f"/sys/class/net/{iface_name}"):
             return None
 
         try:

@@ -3,6 +3,11 @@ import json
 import re
 import time
 import subprocess
+import requests
+import zipfile
+import shutil
+import io
+import tempfile
 from typing import List, Dict, Optional, Any
 from .utils import Utils
 from .openvpn_client import OpenVPNClient
@@ -19,10 +24,10 @@ class Surf:
 
         self.cache_path = os.path.join(self.data_dir, "cache.json")
         self.aliases_path = Utils.get_path("src/aliases.json")
-        
+
         self.api_servers: List[Dict[str, Any]] = []
         self.aliases: Dict[str, str] = {}
-        
+
         # Load aliases
         if os.path.exists(self.aliases_path):
             try:
@@ -38,24 +43,32 @@ class Surf:
                     self.api_servers = json.load(f)
             except Exception:
                 pass
-            
+
         self.surfshark_dir_path: str = os.path.join(self.data_dir, "server_profiles")
         self.wireguard_dir_path: str = os.path.join(self.data_dir, "wireguard_profiles")
         self.config_file_path: str = os.path.join(self.data_dir, "service_credentials.conf")
-        
+
         os.makedirs(self.surfshark_dir_path, exist_ok=True)
         os.makedirs(self.wireguard_dir_path, exist_ok=True)
-            
+
         self.ovpn_client = OpenVPNClient(self.surfshark_dir_path, self.config_file_path)
         self.wg_client = WireGuardClient(self.wireguard_dir_path)
-        
+
+        # Cache for connection status to avoid frequent API calls
+        self._status_cache: Dict[str, Any] = {}
+        self._status_cache_time: float = 0
+        self._status_cache_ttl: int = 60 # Seconds
+
         self.reg_servers: List[Dict[str, Any]] = []
         self.st_servers: List[Dict[str, Any]] = []
         self.mp_servers: List[Dict[str, Any]] = []
-        self.wg_servers: List[Dict[str, Any]] = []
-        
+        self.wg_reg_servers: List[Dict[str, Any]] = []
+        self.wg_st_servers: List[Dict[str, Any]] = []
+        self.wg_mp_servers: List[Dict[str, Any]] = []
+        self.wg_servers: List[Dict[str, Any]] = [] # For backward compatibility
+
         self.wg_privkey: str = ""
-        
+
         self.update_server_lists()
 
     def is_installed(self) -> bool:
@@ -66,27 +79,34 @@ class Surf:
         """Extracts server metadata from a profile filename or connection name."""
         if not profile_name:
             return None
-        
+
         server_code = profile_name.replace('.ovpn', '').replace('.conf', '')
-        
+
         # Check API servers (cached)
         for s in self.api_servers:
             conn_name = s.get("connectionName", "")
-            if conn_name == profile_name or conn_name == f"{server_code}.prod.surfshark.com" or conn_name in profile_name:
+            # Robust matching: hostname in filename or filename starts with hostname
+            if conn_name and (conn_name == profile_name or conn_name in profile_name or profile_name.startswith(conn_name)):
                 code = conn_name.split(".prod")[0]
                 return {
                     "code": code,
                     "country": s.get("country", ""),
                     "countryCode": s.get("countryCode", ""),
                     "city": s.get("location", ""),
+                    "type": s.get("endpoint_type", "generic"),
                     "altSearch": self.aliases.get(code, "")
                 }
+
+        # Fallback for local profiles not found in API cache
+        is_mp = 'mp0' in profile_name or profile_name.startswith('multihop-')
+        is_st = 'st0' in profile_name
 
         return {
             "code": server_code,
             "country": server_code,
             "countryCode": "",
             "city": "",
+            "type": "double" if is_mp else ("static" if is_st else "generic"),
             "altSearch": " "
         }
 
@@ -100,13 +120,25 @@ class Surf:
         """Creates a enriched server object for Ulauncher results."""
         if not server_details or not profile_name:
             return None
-        
+
+        # Determine connection type label
+        stype = server_details.get("type", "generic")
+        if not profile_name.endswith('.ovpn'):
+            conn_type = "WireGuard"
+            if stype == "static": conn_type += " (Static)"
+            elif stype == "double": conn_type += " (Multi-Hop)"
+        else:
+            proto = "TCP" if "tcp.ovpn" in profile_name else "UDP"
+            if stype == "static": conn_type = f"Static-IP ({proto})"
+            elif stype == "double": conn_type = f"Multi-Hop ({proto})"
+            else: conn_type = proto
+
         return {
             "country": server_details["country"],
             "city": server_details["city"],
             "alt_word": server_details.get("altSearch", ""),
             "flag_file": self.flag_name(server_details.get("countryCode", "")),
-            "conn_type": self.get_conn_type_from_profile_name(profile_name),
+            "conn_type": conn_type,
             "server_profile": profile_name
         }
 
@@ -114,10 +146,12 @@ class Surf:
         """Helper to fetch servers from specific API endpoints."""
         try:
             url = f"https://api.surfshark.com/v4/server/clusters/{endpoint_type}"
-            res = subprocess.run(["curl", "-s", url], capture_output=True, text=True)
-            if res.returncode == 0:
-                data = json.loads(res.stdout)
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
                 if isinstance(data, list):
+                    for server in data:
+                        server["endpoint_type"] = endpoint_type
                     return data
         except Exception:
             pass
@@ -142,12 +176,16 @@ class Surf:
     def update_server_lists(self) -> None:
         """Updates the in-memory server lists based on cached API data and local profiles."""
         # Map API servers to wg_servers
+        self.wg_reg_servers = []
+        self.wg_st_servers = []
+        self.wg_mp_servers = []
         self.wg_servers = []
+
         for s in self.api_servers:
             if s.get("pubKey") and s.get("connectionName"):
                 conn_name = s["connectionName"]
                 code = conn_name.split(".prod")[0]
-                self.wg_servers.append({
+                server_obj = {
                     "country": s["country"],
                     "city": s["location"],
                     "alt_word": self.aliases.get(code, ""),
@@ -155,7 +193,17 @@ class Surf:
                     "conn_type": "WireGuard",
                     "server_profile": conn_name,
                     "pubKey": s["pubKey"]
-                })
+                }
+
+                self.wg_servers.append(server_obj)
+
+                etype = s.get("endpoint_type", "generic")
+                if etype == "static":
+                    self.wg_st_servers.append(server_obj)
+                elif etype == "double":
+                    self.wg_mp_servers.append(server_obj)
+                else:
+                    self.wg_reg_servers.append(server_obj)
 
         # OpenVPN local profiles
         if os.path.exists(self.surfshark_dir_path):
@@ -163,7 +211,7 @@ class Surf:
             self.reg_servers = []
             self.st_servers = []
             self.mp_servers = []
-            
+
             for p in all_ovpn:
                 obj = self.populate_server_object(self.get_server_details(p), p)
                 if obj:
@@ -177,13 +225,16 @@ class Surf:
     def connect(self, server: str, wg_privkey: Optional[str] = None, wg_dns: Optional[str] = None) -> None:
         """Orchestrates the connection to a VPN server."""
         server_details = self.get_server_details(server)
+        is_ovpn = server.endswith('.ovpn')
+        proto_name = "OpenVPN" if is_ovpn else "WireGuard"
+
         Utils.notify(
             f'Connecting to {server_details["country"]} - {server_details["city"]}...',
-            "Connecting you to Surfshark.",
+            f"Establishing {proto_name} connection to Surfshark.",
         )
-        
+
         success = False
-        if server.endswith('.ovpn'):
+        if is_ovpn:
             success = self.ovpn_client.connect(server)
         else:
             # WireGuard connection
@@ -191,71 +242,120 @@ class Surf:
             success = self.wg_client.connect(server, target_server=target_server, wg_privkey=wg_privkey, wg_dns=wg_dns)
 
         if success:
-            time.sleep(2)
-            if self.get_status():
+            # Wait for interface to initialize
+            time.sleep(3 if is_ovpn else 1.5)
+            status = self.get_status()
+            if status:
+                secured_info = " (Secured)" if status.get("secured") else ""
                 Utils.notify(
-                    f'Connected to {server_details["country"]} - {server_details["city"]}.',
-                    "Connected to Surfshark VPN.",
+                    f'Connected to {server_details["country"]} - {server_details["city"]}{secured_info}',
+                    f"Your {proto_name} tunnel is now active.",
                 )
                 return
-        
+
+        error_hint = "Check your credentials and OpenVPN logs." if is_ovpn else "Check your WireGuard Private Key and tools."
         Utils.notify(
-            f'Error connecting to {server_details["country"]} - {server_details["city"]}.',
-            "Make sure you have the correct dependencies and WireGuard Private Key set."
+            f'Connection failed.',
+            f"Could not establish {proto_name} connection to {server_details['city']}. {error_hint}"
         )
 
     def disconnect(self) -> None:
         """Disconnects from any active Surfshark VPN session."""
-        Utils.notify("Disconnecting...", "Disconnecting you from Surfshark.")
+        Utils.notify("Disconnecting...", "Tearing down VPN connection.")
         self.ovpn_client.disconnect()
         self.wg_client.disconnect()
         time.sleep(2)
         if not self.get_status():
-            Utils.notify("Disconnected.", "Disconnected from Surfshark VPN.")
+            Utils.notify("Disconnected.", "You are no longer connected to Surfshark.")
         else:
-            Utils.notify("Error while disconnecting.", "There was an error while disconnecting.")
+            Utils.notify("Disconnection Error.", "The VPN tunnel might still be active. Check system logs.")
 
-    def get_conn_type_from_profile_name(self, profile_name: str) -> Optional[str]:
-        """Returns a user-friendly connection type string."""
-        if not profile_name: return None
-        if not profile_name.endswith('.ovpn'): return "WireGuard"
-        if 'mp0' in profile_name or profile_name.startswith('multihop-'): return "Multi-Point"
-        if 'st0' in profile_name: return "Static-IP"
-        return "TCP" if 'tcp.ovpn' in profile_name else "UDP"
-    
     def get_status(self) -> Optional[Dict[str, Any]]:
         """Returns enriched server details for the active VPN connection, if any."""
         profile_name = self.ovpn_client.get_status()
         if profile_name:
-            return self.populate_server_object(self.get_server_details(profile_name), profile_name)
-        
+            status = self.populate_server_object(self.get_server_details(profile_name), profile_name)
+            if status:
+                sec_info = self.is_secured()
+                status["secured"] = sec_info["secured"]
+                status["ip"] = sec_info["ip"]
+            return status
+
         connection_name = self.wg_client.get_status()
         if connection_name:
-            return self.populate_server_object(self.get_server_details(connection_name), connection_name)
-            
+            status = self.populate_server_object(self.get_server_details(connection_name), connection_name)
+            if status:
+                sec_info = self.is_secured()
+                status["secured"] = sec_info["secured"]
+                status["ip"] = sec_info["ip"]
+            return status
+
         return None
-    
+
+    def is_secured(self) -> Dict[str, Any]:
+        """Verifies if the current connection is secured and returns IP info with caching."""
+        now = time.time()
+        if self._status_cache and (now - self._status_cache_time) < self._status_cache_ttl:
+            return self._status_cache
+
+        result = {"secured": False, "ip": "Unknown"}
+        try:
+            # We use a short timeout to avoid blocking the UI
+            response = requests.get("https://api.surfshark.com/v1/server/user", timeout=1.5)
+            if response.status_code == 200:
+                data = response.json()
+                result["secured"] = data.get("secured", False)
+                result["ip"] = data.get("ip", "Unknown")
+        except Exception:
+            pass
+
+        self._status_cache = result
+        self._status_cache_time = now
+        return result
+
     def refresh_openvpn_connections(self) -> None:
         """Downloads and refreshes OpenVPN connection profiles and API cache."""
-        Utils.notify("Refreshing...", "Refreshing connection profiles and API cache.")
+        Utils.notify("Refreshing...", "Updating server profiles and API cache.")
         try:
             self.refresh_server_list()
-            # Clean old profiles
-            if os.path.exists(self.surfshark_dir_path):
-                subprocess.run(f"rm {self.surfshark_dir_path}/*.ovpn", shell=True)
-            else:
-                os.makedirs(self.surfshark_dir_path, exist_ok=True)
 
-            subprocess.run(["wget", "https://my.surfshark.com/vpn/api/v1/server/configurations", "-P", self.surfshark_dir_path], check=True)
-            subprocess.run(["unzip", "-o", os.path.join(self.surfshark_dir_path, "configurations"), "-d", self.surfshark_dir_path], check=True)
+            # Download to memory
+            url = "https://my.surfshark.com/vpn/api/v1/server/configurations"
+            response = requests.get(url, timeout=30)
+            if response.status_code != 200:
+                raise Exception(f"HTTP Error {response.status_code}")
+
+            # Extract to temporary directory
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+                    z.extractall(tmp_dir)
+
+                # Check if we got some .ovpn files
+                new_profiles = [f for f in os.listdir(tmp_dir) if f.endswith('.ovpn')]
+                if not new_profiles:
+                    raise Exception("Downloaded archive is empty or invalid.")
+
+                # Non-destructive swap:
+                # 1. Clean current profiles directory
+                if os.path.exists(self.surfshark_dir_path):
+                    for f in os.listdir(self.surfshark_dir_path):
+                        if f.endswith('.ovpn'):
+                            os.remove(os.path.join(self.surfshark_dir_path, f))
+                else:
+                    os.makedirs(self.surfshark_dir_path, exist_ok=True)
+
+                # 2. Move new profiles to the final destination
+                for f in new_profiles:
+                    shutil.move(os.path.join(tmp_dir, f), os.path.join(self.surfshark_dir_path, f))
+
             self.update_server_lists()
-            Utils.notify("Refreshed.", "Profiles and cache refreshed.")
+            Utils.notify("Refreshed.", "Surfshark database successfully updated.")
         except Exception as e:
-            Utils.notify("Refresh failed.", str(e))
+            Utils.notify("Update Failed.", f"Error refreshing database: {str(e)}")
 
     def is_credential_file_exists(self) -> bool:
         return os.path.exists(self.config_file_path)
-    
+
     def update_credential_file(self, uname: Optional[str], passwd: Optional[str]) -> None:
         if not self.is_credential_file_exists():
             with open(self.config_file_path, 'w') as f: f.write("\n\n")
