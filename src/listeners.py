@@ -43,7 +43,7 @@ class KeywordQueryEventListener(EventListener):
 
         argument = event.get_argument() or ""
         command, connection_type, server_query = (argument.split(" ", 2) + [None] + [None])[:3]
-        
+
         if not command:
             server_connected = extension.get_connection_status()
             if server_connected:
@@ -52,7 +52,7 @@ class KeywordQueryEventListener(EventListener):
                         ExtensionResultItem(
                             icon=Utils.get_path(f'images/flags/{server_connected["flag_file"]}'),
                             name="Connected",
-                            description=(server_connected["country"] + " - " + server_connected["city"] + " : " + server_connected["conn_type"]),
+                            description=(server_connected["country"] + " - " + server_connected["city"] + ": " + server_connected["conn_type"]),
                             highlightable=False,
                             on_enter=SetUserQueryAction(
                                 f'{extension.keyword or " "} '
@@ -74,7 +74,7 @@ class KeywordQueryEventListener(EventListener):
                         ),
                     ]
                 )
-            
+
             items.extend(
                 [
                     ExtensionResultItem(
@@ -93,7 +93,7 @@ class KeywordQueryEventListener(EventListener):
                     ),
                 ]
             )
-        
+
         elif command in "connect":
             if not connection_type:
                 for conn_type in Utils.get_available_connection_types():
@@ -140,7 +140,7 @@ class KeywordQueryEventListener(EventListener):
                     ),
                 ]
             )
-        
+
         return RenderResultListAction(items)
 
 
@@ -184,14 +184,14 @@ class PreferencesEventListener(EventListener):
         """
         extension.keyword = event.preferences["surf_kw"]
         extension.uname = event.preferences["surf_uname"]
-        extension.passwd = event.preferences["surf_passwd"]  
+        extension.passwd = event.preferences["surf_passwd"]
         extension.wg_privkey = event.preferences.get("surf_wg_privkey", "")
         extension.wg_dns = event.preferences.get("surf_wg_dns", "162.252.172.57, 149.154.159.92")
         try:
             extension.max_server_entries = int(event.preferences["surf_max_entry"])
         except ValueError:
             extension.max_server_entries = 10
-        
+
 
 class PreferencesUpdateEventListener(EventListener):
     """Listens for and handles real-time preference updates."""
