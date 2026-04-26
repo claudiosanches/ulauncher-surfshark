@@ -339,7 +339,7 @@ class Surf:
                 # 1. Clean current profiles directory
                 if os.path.exists(self.surfshark_dir_path):
                     for f in os.listdir(self.surfshark_dir_path):
-                        if f.endswith('.ovpn'):
+                        if f != "update-dns.sh":
                             os.remove(os.path.join(self.surfshark_dir_path, f))
                 else:
                     os.makedirs(self.surfshark_dir_path, exist_ok=True)
