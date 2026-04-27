@@ -1,5 +1,7 @@
 import pathlib
 from typing import List, Dict
+import gi
+gi.require_version('Notify', '0.7')
 from gi.repository import Notify
 
 class Utils:

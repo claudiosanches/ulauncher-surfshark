@@ -30,6 +30,30 @@ class WireGuardClient(VPNClient):
         """Checks if wg-quick is installed."""
         return bool(self.installed_path)
 
+    def generate_config(self, privkey: str, pubkey: str, endpoint: str, dns: str = "162.252.172.57, 149.154.159.92") -> str:
+        """
+        Generates a valid WireGuard configuration string.
+
+        Args:
+            privkey: User's private key.
+            pubkey: Server's public key.
+            endpoint: Server's connection address.
+            dns: Comma-separated list of DNS servers.
+
+        Returns:
+            The formatted configuration content.
+        """
+        return f"""[Interface]
+PrivateKey = {privkey}
+Address = 10.14.0.2/16
+DNS = {dns}
+
+[Peer]
+PublicKey = {pubkey}
+AllowedIPs = 0.0.0.0/0
+Endpoint = {endpoint}:51820
+"""
+
     def connect(self, connection_name: str, **kwargs: Any) -> bool:
         """
         Connects to a Surfshark server via WireGuard.
@@ -54,16 +78,12 @@ class WireGuardClient(VPNClient):
         iface_name = "surfshark_wg"
         dns_servers = wg_dns if wg_dns else "162.252.172.57, 149.154.159.92"
 
-        config_content = f"""[Interface]
-PrivateKey = {wg_privkey}
-Address = 10.14.0.2/16
-DNS = {dns_servers}
-
-[Peer]
-PublicKey = {target_server['pubKey']}
-AllowedIPs = 0.0.0.0/0
-Endpoint = {target_server['connectionName']}:51820
-"""
+        config_content = self.generate_config(
+            privkey=wg_privkey,
+            pubkey=target_server['pubKey'],
+            endpoint=target_server['connectionName'],
+            dns=dns_servers
+        )
 
         config_path = os.path.join(self.wireguard_dir_path, f"{iface_name}.conf")
 
