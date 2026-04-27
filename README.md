@@ -9,14 +9,19 @@ Simple [Ulauncher](https://ulauncher.io) extension to quickly toggle and connect
 ## Features
 
 - **WireGuard Support**: Fully automated WireGuard integration. Just paste your Private Key and connect.
-- **Anti-DNS Leak Technology**: Integrated custom DNS management (supporting `systemd-resolved` and `resolvconf`) to prevent DNS leaks on OpenVPN connections—a critical fix not present in the original extension.
-- **OpenVPN Support**: Support for traditional `.ovpn` profiles.
-- **Auto-Discovery**: Fetches the latest server list (Standard, Multi-Hop, Static IP) directly from Surfshark's API.
+- **OpenVPN Support**: Support for traditional `.ovpn` profiles with automatic on-demand generation for Static IP and MultiHop servers.
+- **MultiHop Support**: Complete support for Surfshark's MultiHop (Double VPN) servers via OpenVPN.
+- **Anti-DNS Leak Technology**: Integrated custom DNS management (supporting `systemd-resolved` and `resolvconf`) to prevent DNS leaks on OpenVPN connections.
+- **Auto-Discovery**: Fetches the latest server list directly from Surfshark's API.
 - **Smart Search**: Supports searching by country, city, and common aliases (e.g., "UK", "UAE", "HK").
-- **Fast Initialization**: Uses a local cache for near-instant loading.
+- **Verified Connection**: Real-time public IP and security status verification displayed directly in the UI.
 - **Beautiful UI**: Modern, high-quality rounded flag icons for all locations.
 
 > **Disclaimer**: This is an unofficial extension and is not affiliated with, maintained, or endorsed by Surfshark. Use it at your own risk.
+
+## TODO
+
+- [ ] **WireGuard MultiHop**: Support for MultiHop via WireGuard is currently missing.
 
 ## Installation
 
@@ -26,7 +31,6 @@ This extension requires the following components to function correctly:
 
 - **OpenVPN**: `sudo apt install openvpn` (for OpenVPN connections)
 - **WireGuard**: `sudo apt install wireguard-tools` (for WireGuard connections)
-- **wget** and **unzip**: (for profile discovery)
 
 > **Note:** It is highly recommended to **restart Ulauncher** after installing the dependencies or the extension itself to ensure all components are correctly detected.
 
@@ -72,7 +76,14 @@ Open Ulauncher and type the set up keyword (defaults to `surf`).
 ## Credits
 
 - **Flag Icons**: This project uses the beautiful rounded flags from the [circle-flags](https://github.com/HatScripts/circle-flags) project by [HatScripts](https://github.com/HatScripts).
-- **Inspiration**: This project is a significantly refactored and modernized version of the original [ulauncher-surfshark](https://github.com/saini-anshul/ulauncher-surfshark) extension by [Anshul Saini](https://github.com/saini-anshul). It has been updated for Python 3, WireGuard support, modern Surfshark APIs, and **fixes critical DNS leak issues** that were present in the original implementation.
+- **Inspiration**: This project is a significantly refactored and modernized version of the original [ulauncher-surfshark](https://github.com/saini-anshul/ulauncher-surfshark) extension by [Anshul Saini](https://github.com/saini-anshul). 
+  - *Key improvements in this version include:*
+    - Added **WireGuard** support.
+    - Added **MultiHop** and **Static IP** support for OpenVPN.
+    - Fixed critical **DNS leak issues** via custom DNS management.
+    - Replaced external shell dependencies (`wget`, `unzip`, `curl`) with native Python implementations.
+    - Added real-time **connection verification** (Secured/Not Secured status with IP).
+    - Updated for Python 3 and modern Surfshark APIs.
 
 ## License
 
