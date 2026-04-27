@@ -53,16 +53,6 @@ class Utils:
                 "action": "wg"
             },
             {
-                "name": "Static WireGuard",
-                "description": "Connect to VPN with Static IP - WireGuard",
-                "action": "wg_st"
-            },
-            {
-                "name": "Multipoint WireGuard",
-                "description": "Connect to VPN with Multipoint WireGuard",
-                "action": "wg_mp"
-            },
-            {
                 "name": "UDP",
                 "description": "Connect to VPN using UDP",
                 "action": "udp"
@@ -71,6 +61,11 @@ class Utils:
                 "name": "TCP",
                 "description": "Connect to VPN using TCP",
                 "action": "tcp"
+            },
+            {
+                "name": "Static WireGuard",
+                "description": "Connect to VPN with Static IP - WireGuard",
+                "action": "wg_st"
             },
             {
                 "name": "Static UDP",
@@ -83,13 +78,13 @@ class Utils:
                 "action": "st_tcp"
             },
             {
-                "name": "Multipoint UDP",
-                "description": "Connect to VPN with Multipoint UDP",
+                "name": "MultiHop UDP",
+                "description": "Connect to VPN with MultiHop UDP",
                 "action": "mp_udp"
             },
             {
-                "name": "Multipoint TCP",
-                "description": "Connect to VPN with Multipoint TCP",
+                "name": "MultiHop TCP",
+                "description": "Connect to VPN with MultiHop TCP",
                 "action": "mp_tcp"
             }
         ]
