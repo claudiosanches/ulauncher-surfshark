@@ -126,11 +126,11 @@ class Surf:
         if not profile_name.endswith('.ovpn'):
             conn_type = "WireGuard"
             if stype == "static": conn_type = "WireGuard (Static)"
-            elif stype in ["double", "obfuscated"]: conn_type = "WireGuard (Multi-Hop)"
+            elif stype in ["double", "obfuscated"]: conn_type = "WireGuard (MultiHop)"
         else:
             proto = "TCP" if "tcp.ovpn" in profile_name else "UDP"
             if stype == "static": conn_type = f"OpenVPN (Static {proto})"
-            elif stype in ["double", "obfuscated"]: conn_type = f"OpenVPN (Multi-Hop {proto})"
+            elif stype in ["double", "obfuscated"]: conn_type = f"OpenVPN (MultiHop {proto})"
             else: conn_type = f"OpenVPN ({proto})"
 
         return {
