@@ -125,13 +125,13 @@ class Surf:
         stype = server_details.get("type", "generic")
         if not profile_name.endswith('.ovpn'):
             conn_type = "WireGuard"
-            if stype == "static": conn_type += " (Static)"
-            elif stype == "double": conn_type += " (Multi-Hop)"
+            if stype == "static": conn_type = "WireGuard (Static)"
+            elif stype in ["double", "obfuscated"]: conn_type = "WireGuard (Multi-Hop)"
         else:
             proto = "TCP" if "tcp.ovpn" in profile_name else "UDP"
-            if stype == "static": conn_type = f"Static-IP ({proto})"
-            elif stype == "double": conn_type = f"Multi-Hop ({proto})"
-            else: conn_type = proto
+            if stype == "static": conn_type = f"OpenVPN (Static {proto})"
+            elif stype in ["double", "obfuscated"]: conn_type = f"OpenVPN (Multi-Hop {proto})"
+            else: conn_type = f"OpenVPN ({proto})"
 
         return {
             "country": server_details["country"],
