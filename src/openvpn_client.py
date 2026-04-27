@@ -91,7 +91,6 @@ fi
             with open(target_path, 'r') as f:
                 content = f.read()
             
-            # Multi-hop needs port 443 for TCP
             # Multi-hop needs port 443 for BOTH TCP and UDP
             needs_port_fix = is_multihop and " 443" not in content
             
@@ -100,23 +99,7 @@ fi
             
             # Modernize/Fix in-place
             try:
-                if needs_port_fix:
-                    new_remote_base = server_profile.replace("_tcp.ovpn", "").replace("_udp.ovpn", "")
-                    content = re.sub(r'remote .*? \d+', f'remote {new_remote_base} 443', content)
-
-                if proto == "tcp":
-                    content = re.sub(r'^(fast-io|explicit-exit-notify)', r'#\1', content, flags=re.MULTILINE)
-                
-                if 'pull-filter ignore' not in content:
-                    content += "\npull-filter ignore \"explicit-exit-notify\""
-                    content += "\npull-filter ignore \"block-outside-dns\""
-
-                if 'data-ciphers ' not in content:
-                    content = re.sub(r'^cipher .*', 'data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305\ncipher AES-256-GCM', content, flags=re.MULTILINE)
-
-                if 'remote-cert-tls server' not in content:
-                    content += "\nremote-cert-tls server"
-
+                content = self.modernize_config(content, proto, is_multihop, server_profile)
                 with open(target_path, 'w') as f:
                     f.write(content)
                 return True
@@ -130,22 +113,15 @@ fi
 
         new_remote = match_gen.group(1)
         new_proto = match_gen.group(2)
-        
-        # Multi-hop uses 443 for BOTH TCP and UDP
-        if is_multihop:
-            new_port = "443"
-        else:
-            new_port = "1194" if new_proto == "udp" else "1443"
+        new_port = self.get_port_for_protocol(new_proto, is_multihop)
 
         # 1. Find the best template
         template_file = None
         all_files = os.listdir(self.surfshark_dir_path)
-        is_multihop = 'mp0' in server_profile
-
+        
         if is_multihop:
-            # For multi-hop, we MUST use another mp0 file as template if possible
             for f in all_files:
-                if f.endswith(f'_{proto}.ovpn') and 'mp0' in f and f != server_profile:
+                if f.endswith(f'_{new_proto}.ovpn') and 'mp0' in f and f != server_profile:
                     template_file = f
                     break
             if not template_file:
@@ -155,21 +131,17 @@ fi
                         break
 
         if not template_file:
-            # Try to find a generic profile with the SAME protocol
             for f in all_files:
-                if f.endswith(f'_{proto}.ovpn') and 'st0' not in f and 'mp0' not in f:
+                if f.endswith(f'_{new_proto}.ovpn') and 'st0' not in f and 'mp0' not in f:
                     template_file = f
                     break
-
         
-        # Fallback to any generic profile
         if not template_file:
             for f in all_files:
                 if f.endswith('.ovpn') and 'st0' not in f and 'mp0' not in f:
                     template_file = f
                     break
                     
-        # Final fallback to absolutely any .ovpn
         if not template_file:
             for f in all_files:
                 if f.endswith('.ovpn'):
@@ -184,29 +156,69 @@ fi
                 content = f.read()
 
             # 2. Update core connection settings
-            # Replace remote line with correct hostname and port
             content = re.sub(r'remote .*? \d+', f'remote {new_remote} {new_port}', content)
-            # Replace proto line
             content = re.sub(r'proto (udp|tcp)', f'proto {new_proto}', content)
 
-            # 3. Clean up protocol-incompatible options and server-pushed junk
-            if new_proto == "tcp":
-                content = re.sub(r'^(fast-io|explicit-exit-notify)', r'#\1', content, flags=re.MULTILINE)
-            
-            # Silence server-pushed warnings
-            content += "\npull-filter ignore \"explicit-exit-notify\""
-            content += "\npull-filter ignore \"block-outside-dns\""
-
-            # 4. Modernize cipher to avoid warnings in OpenVPN 2.6+
-            if 'data-ciphers ' not in content:
-                # Add data-ciphers and ensure we're using a modern one
-                content = re.sub(r'^cipher .*', 'data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305\ncipher AES-256-GCM', content, flags=re.MULTILINE)
+            # 3. Modernize
+            content = self.modernize_config(content, new_proto, is_multihop)
 
             with open(target_path, 'w') as f:
                 f.write(content)
             return True
         except Exception:
             return False
+
+    def get_port_for_protocol(self, protocol: str, is_multihop: bool = False) -> str:
+        """
+        Returns the correct port for a given protocol and server type.
+
+        Args:
+            protocol: Either 'udp' or 'tcp'.
+            is_multihop: Whether the server is a Multi-Hop cluster.
+
+        Returns:
+            The string representation of the port number.
+        """
+        if is_multihop:
+            return "443"
+        return "1194" if protocol == "udp" else "1443"
+
+    def modernize_config(self, content: str, protocol: str, is_multihop: bool = False, server_profile: str = "") -> str:
+        """
+        Applies security and protocol-specific fixes to a configuration string.
+
+        Args:
+            content: The raw .ovpn configuration content.
+            protocol: Either 'udp' or 'tcp'.
+            is_multihop: Whether to apply multi-hop specific fixes.
+            server_profile: The profile name, used for log/path references.
+
+        Returns:
+            The modernized configuration string.
+        """
+        # 1. Port fix for Multi-Hop
+        if is_multihop and " 443" not in content and server_profile:
+            new_remote_base = server_profile.replace("_tcp.ovpn", "").replace("_udp.ovpn", "")
+            content = re.sub(r'remote .*? \d+', f'remote {new_remote_base} 443', content)
+
+        # 2. Clean up protocol-incompatible options
+        if protocol == "tcp":
+            content = re.sub(r'^(fast-io|explicit-exit-notify)', r'#\1', content, flags=re.MULTILINE)
+        
+        # 3. Pull filters
+        if 'pull-filter ignore' not in content:
+            content += "\npull-filter ignore \"explicit-exit-notify\""
+            content += "\npull-filter ignore \"block-outside-dns\""
+
+        # 4. Modernize cipher
+        if 'data-ciphers ' not in content:
+            content = re.sub(r'^cipher .*', 'data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305\ncipher AES-256-GCM', content, flags=re.MULTILINE)
+
+        # 5. Certificate verification
+        if 'remote-cert-tls server' not in content:
+            content += "\nremote-cert-tls server"
+
+        return content
 
     def connect(self, server_profile: str, **kwargs: Any) -> bool:
         """

@@ -265,26 +265,39 @@ class Surf:
             Utils.notify("Disconnection Error.", "The VPN tunnel might still be active. Check system logs.")
 
     def get_status(self) -> Optional[Dict[str, Any]]:
-        """Returns enriched server details for the active VPN connection, if any."""
-        profile_name = self.ovpn_client.get_status()
-        if profile_name:
-            status = self.populate_server_object(self.get_server_details(profile_name), profile_name)
-            if status:
-                sec_info = self.is_secured()
-                status["secured"] = sec_info["secured"]
-                status["ip"] = sec_info["ip"]
-            return status
+        """
+        Retrieves the current VPN connection status.
+        
+        Checks both OpenVPN and WireGuard clients for an active connection
+        and returns enriched metadata if found.
 
-        connection_name = self.wg_client.get_status()
-        if connection_name:
-            status = self.populate_server_object(self.get_server_details(connection_name), connection_name)
-            if status:
-                sec_info = self.is_secured()
-                status["secured"] = sec_info["secured"]
-                status["ip"] = sec_info["ip"]
-            return status
-
+        Returns:
+            A dictionary containing server details and security status, or None.
+        """
+        # Check OpenVPN first, then WireGuard
+        connection = self.ovpn_client.get_status() or self.wg_client.get_status()
+        
+        if connection:
+            return self._enrich_status(connection)
+            
         return None
+
+    def _enrich_status(self, profile_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Enriches a raw profile name with metadata and real-time security status.
+
+        Args:
+            profile_name: The filename or connection identifier of the active tunnel.
+
+        Returns:
+            A dictionary with country, city, IP, and security status.
+        """
+        status = self.populate_server_object(self.get_server_details(profile_name), profile_name)
+        if status:
+            sec_info = self.is_secured()
+            status["secured"] = sec_info["secured"]
+            status["ip"] = sec_info["ip"]
+        return status
 
     def is_secured(self) -> Dict[str, Any]:
         """Verifies if the current connection is secured and returns IP info with caching."""
