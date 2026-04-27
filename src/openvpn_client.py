@@ -78,19 +78,41 @@ fi
         return bool(self.installed_path)
 
     def _ensure_profile_exists(self, server_profile: str) -> bool:
-        """Checks if a profile exists, and if not, generates it from a template."""
+        """Checks if a profile exists and modernizes it if necessary."""
         target_path = os.path.join(self.surfshark_dir_path, server_profile)
+        
+        # Extract protocol from target filename
+        match = re.search(r'_(udp|tcp)\.ovpn$', server_profile)
+        proto = match.group(1) if match else "udp"
+
+        # If it exists, check if it needs modernization
         if os.path.exists(target_path):
-            return True
+            with open(target_path, 'r') as f:
+                content = f.read()
+            if 'data-ciphers' in content and 'pull-filter ignore' in content:
+                return True
+            # If it's an old-style profile, we modernize it in-place
+            try:
+                # 1. Clean up protocol-incompatible options and server-pushed junk
+                if proto == "tcp":
+                    content = re.sub(r'^(fast-io|explicit-exit-notify)', r'#\1', content, flags=re.MULTILINE)
+                
+                if 'pull-filter ignore' not in content:
+                    content += "\npull-filter ignore \"explicit-exit-notify\""
+                    content += "\npull-filter ignore \"block-outside-dns\""
 
-        # Extract server address and protocol from target filename
-        match = re.match(r'(.*)_(udp|tcp)\.ovpn', server_profile)
-        if not match:
-            return False
+                # 2. Modernize cipher
+                if 'data-ciphers ' not in content:
+                    content = re.sub(r'^cipher .*', 'data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305\ncipher AES-256-GCM', content, flags=re.MULTILINE)
 
-        new_remote = match.group(1)
-        new_proto = match.group(2)
-        new_port = "1194" if new_proto == "udp" else "1443"
+                with open(target_path, 'w') as f:
+                    f.write(content)
+                return True
+            except Exception:
+                return True # Fallback to original file if we can't write
+
+        # File doesn't exist, we need to generate it from a template (for static/multi-hop)
+        # ... (rest of generation logic)
 
         # 1. Find the best template (preferably matching the same protocol)
         template_file = None
