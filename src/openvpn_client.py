@@ -112,7 +112,15 @@ fi
                 return True # Fallback to original file if we can't write
 
         # File doesn't exist, we need to generate it from a template (for static/multi-hop)
-        # ... (rest of generation logic)
+        # Extract server address and protocol from target filename
+        # Format: hostname.prod.surfshark.com_proto.ovpn
+        match_gen = re.match(r'(.*)_(udp|tcp)\.ovpn', server_profile)
+        if not match_gen:
+            return False
+
+        new_remote = match_gen.group(1)
+        new_proto = match_gen.group(2)
+        new_port = "1194" if new_proto == "udp" else "1443"
 
         # 1. Find the best template (preferably matching the same protocol)
         template_file = None
