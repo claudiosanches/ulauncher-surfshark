@@ -77,6 +77,77 @@ fi
         """Checks if OpenVPN is installed."""
         return bool(self.installed_path)
 
+    def _ensure_profile_exists(self, server_profile: str) -> bool:
+        """Checks if a profile exists, and if not, generates it from a template."""
+        target_path = os.path.join(self.surfshark_dir_path, server_profile)
+        if os.path.exists(target_path):
+            return True
+
+        # Extract server address and protocol from target filename
+        match = re.match(r'(.*)_(udp|tcp)\.ovpn', server_profile)
+        if not match:
+            return False
+
+        new_remote = match.group(1)
+        new_proto = match.group(2)
+        new_port = "1194" if new_proto == "udp" else "1443"
+
+        # 1. Find the best template (preferably matching the same protocol)
+        template_file = None
+        all_files = os.listdir(self.surfshark_dir_path)
+        
+        # Try to find a generic profile with the SAME protocol
+        for f in all_files:
+            if f.endswith(f'_{new_proto}.ovpn') and 'st0' not in f and 'mp0' not in f:
+                template_file = f
+                break
+        
+        # Fallback to any generic profile
+        if not template_file:
+            for f in all_files:
+                if f.endswith('.ovpn') and 'st0' not in f and 'mp0' not in f:
+                    template_file = f
+                    break
+                    
+        # Final fallback to absolutely any .ovpn
+        if not template_file:
+            for f in all_files:
+                if f.endswith('.ovpn'):
+                    template_file = f
+                    break
+
+        if not template_file:
+            return False
+
+        try:
+            with open(os.path.join(self.surfshark_dir_path, template_file), 'r') as f:
+                content = f.read()
+
+            # 2. Update core connection settings
+            # Replace remote line with correct hostname and port
+            content = re.sub(r'remote .*? \d+', f'remote {new_remote} {new_port}', content)
+            # Replace proto line
+            content = re.sub(r'proto (udp|tcp)', f'proto {new_proto}', content)
+
+            # 3. Clean up protocol-incompatible options and server-pushed junk
+            if new_proto == "tcp":
+                content = re.sub(r'^(fast-io|explicit-exit-notify)', r'#\1', content, flags=re.MULTILINE)
+            
+            # Silence server-pushed warnings
+            content += "\npull-filter ignore \"explicit-exit-notify\""
+            content += "\npull-filter ignore \"block-outside-dns\""
+
+            # 4. Modernize cipher to avoid warnings in OpenVPN 2.6+
+            if 'data-ciphers ' not in content:
+                # Add data-ciphers and ensure we're using a modern one
+                content = re.sub(r'^cipher .*', 'data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305\ncipher AES-256-GCM', content, flags=re.MULTILINE)
+
+            with open(target_path, 'w') as f:
+                f.write(content)
+            return True
+        except Exception:
+            return False
+
     def connect(self, server_profile: str, **kwargs: Any) -> bool:
         """
         Connects to a Surfshark server via OpenVPN.
@@ -89,6 +160,9 @@ fi
             True if initiated, False otherwise.
         """
         if not self.is_installed():
+            return False
+
+        if not self._ensure_profile_exists(server_profile):
             return False
 
         # Need to run command in new bash and background to avoid locking extension
