@@ -81,19 +81,29 @@ fi
         """Checks if a profile exists and modernizes it if necessary."""
         target_path = os.path.join(self.surfshark_dir_path, server_profile)
         
-        # Extract protocol from target filename
-        match = re.search(r'_(udp|tcp)\.ovpn$', server_profile)
-        proto = match.group(1) if match else "udp"
+        # Extract protocol and check if multi-hop
+        match_p = re.search(r'_(udp|tcp)\.ovpn$', server_profile)
+        proto = match_p.group(1) if match_p else "udp"
+        is_multihop = 'mp0' in server_profile
 
-        # If it exists, check if it needs modernization
+        # If it exists, check if it needs modernization or port fix
         if os.path.exists(target_path):
             with open(target_path, 'r') as f:
                 content = f.read()
-            if 'data-ciphers' in content and 'pull-filter ignore' in content:
+            
+            # Multi-hop needs port 443 for TCP
+            # Multi-hop needs port 443 for BOTH TCP and UDP
+            needs_port_fix = is_multihop and " 443" not in content
+            
+            if 'data-ciphers' in content and 'pull-filter ignore' in content and not needs_port_fix:
                 return True
-            # If it's an old-style profile, we modernize it in-place
+            
+            # Modernize/Fix in-place
             try:
-                # 1. Clean up protocol-incompatible options and server-pushed junk
+                if needs_port_fix:
+                    new_remote_base = server_profile.replace("_tcp.ovpn", "").replace("_udp.ovpn", "")
+                    content = re.sub(r'remote .*? \d+', f'remote {new_remote_base} 443', content)
+
                 if proto == "tcp":
                     content = re.sub(r'^(fast-io|explicit-exit-notify)', r'#\1', content, flags=re.MULTILINE)
                 
@@ -101,36 +111,56 @@ fi
                     content += "\npull-filter ignore \"explicit-exit-notify\""
                     content += "\npull-filter ignore \"block-outside-dns\""
 
-                # 2. Modernize cipher
                 if 'data-ciphers ' not in content:
                     content = re.sub(r'^cipher .*', 'data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305\ncipher AES-256-GCM', content, flags=re.MULTILINE)
+
+                if 'remote-cert-tls server' not in content:
+                    content += "\nremote-cert-tls server"
 
                 with open(target_path, 'w') as f:
                     f.write(content)
                 return True
             except Exception:
-                return True # Fallback to original file if we can't write
+                return True
 
-        # File doesn't exist, we need to generate it from a template (for static/multi-hop)
-        # Extract server address and protocol from target filename
-        # Format: hostname.prod.surfshark.com_proto.ovpn
+        # File doesn't exist, we need to generate it from a template
         match_gen = re.match(r'(.*)_(udp|tcp)\.ovpn', server_profile)
         if not match_gen:
             return False
 
         new_remote = match_gen.group(1)
         new_proto = match_gen.group(2)
-        new_port = "1194" if new_proto == "udp" else "1443"
+        
+        # Multi-hop uses 443 for BOTH TCP and UDP
+        if is_multihop:
+            new_port = "443"
+        else:
+            new_port = "1194" if new_proto == "udp" else "1443"
 
-        # 1. Find the best template (preferably matching the same protocol)
+        # 1. Find the best template
         template_file = None
         all_files = os.listdir(self.surfshark_dir_path)
-        
-        # Try to find a generic profile with the SAME protocol
-        for f in all_files:
-            if f.endswith(f'_{new_proto}.ovpn') and 'st0' not in f and 'mp0' not in f:
-                template_file = f
-                break
+        is_multihop = 'mp0' in server_profile
+
+        if is_multihop:
+            # For multi-hop, we MUST use another mp0 file as template if possible
+            for f in all_files:
+                if f.endswith(f'_{proto}.ovpn') and 'mp0' in f and f != server_profile:
+                    template_file = f
+                    break
+            if not template_file:
+                for f in all_files:
+                    if f.endswith('.ovpn') and 'mp0' in f and f != server_profile:
+                        template_file = f
+                        break
+
+        if not template_file:
+            # Try to find a generic profile with the SAME protocol
+            for f in all_files:
+                if f.endswith(f'_{proto}.ovpn') and 'st0' not in f and 'mp0' not in f:
+                    template_file = f
+                    break
+
         
         # Fallback to any generic profile
         if not template_file:
