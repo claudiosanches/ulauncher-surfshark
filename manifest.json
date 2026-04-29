@@ -8,7 +8,7 @@
     {
       "id": "surf_kw",
       "type": "keyword",
-      "name": "Trigger keyword",
+      "name": "Surfshark",
       "default_value": "surf"
     },
     {

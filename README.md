@@ -58,7 +58,7 @@ This extension requires the following components to function correctly:
 
 In Ulauncher GUI, you can set the following preferences:
 
-- **Trigger keyword**: Keyword to trigger the extension (defaults to `surf`).
+- **Keyword**: Keyword to trigger the extension (defaults to `surf`).
 - **Maximum number of servers**: Limit the number of servers shown in the list.
 - **Surfshark service username**: Your manual setup username (not your email).
 - **Surfshark service password**: Your manual setup password.
