@@ -116,6 +116,20 @@ class Surf:
             return "../icon.svg" # Relative to images/flags/
         return f"{country_code.lower()}.svg"
 
+    def get_server_type(self, server: Dict[str, Any]) -> str:
+        """Determines the Surfshark server type from API metadata."""
+        conn_name = server.get("connectionName", "")
+        server_type = server.get("endpoint_type") or server.get("type", "generic")
+
+        if 'mp0' in conn_name or conn_name.startswith('multihop-'):
+            return "double"
+        if 'st0' in conn_name:
+            return "static"
+        if server_type == "obfuscated":
+            return "double"
+
+        return server_type
+
     def populate_server_object(self, server_details: Dict[str, Any], profile_name: str) -> Optional[Dict[str, Any]]:
         """Creates a enriched server object for Ulauncher results."""
         if not server_details or not profile_name:
@@ -189,7 +203,7 @@ class Surf:
                 continue
 
             code = conn_name.split(".prod")[0]
-            etype = s.get("endpoint_type", "generic")
+            etype = self.get_server_type(s)
             details = {
                 "country": s.get("country", ""),
                 "countryCode": s.get("countryCode", ""),
@@ -204,7 +218,7 @@ class Surf:
                 if wg_obj:
                     self.wg_servers.append(wg_obj)
                     if etype == "static": self.wg_st_servers.append(wg_obj)
-                    elif etype == "obfuscated": self.wg_mp_servers.append(wg_obj)
+                    elif etype in ["double", "obfuscated"]: self.wg_mp_servers.append(wg_obj)
                     else: self.wg_reg_servers.append(wg_obj)
 
             # OpenVPN entries (TCP and UDP)
@@ -213,7 +227,7 @@ class Surf:
                 ovpn_obj = self.populate_server_object(details, p_name)
                 if ovpn_obj:
                     if etype == "static": self.st_servers.append(ovpn_obj)
-                    elif etype == "obfuscated": self.mp_servers.append(ovpn_obj)
+                    elif etype in ["double", "obfuscated"]: self.mp_servers.append(ovpn_obj)
                     else: self.reg_servers.append(ovpn_obj)
 
     def connect(self, server: str, wg_privkey: Optional[str] = None, wg_dns: Optional[str] = None) -> None:

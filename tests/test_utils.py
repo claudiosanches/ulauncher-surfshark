@@ -14,10 +14,11 @@ def test_get_available_connection_types():
     conn_types = Utils.get_available_connection_types()
     
     assert isinstance(conn_types, list)
-    assert len(conn_types) == 8
+    assert len(conn_types) == 9
     
     actions = [c["action"] for c in conn_types]
     assert "wg" in actions
+    assert "wg_mp" in actions
     assert "st_udp" in actions
     assert "mp_tcp" in actions
     

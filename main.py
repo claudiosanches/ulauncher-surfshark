@@ -93,6 +93,15 @@ class SurfExtension(Extension):
             data = self.filter_server_list(query, '', self.surf.wg_st_servers)
         elif server_type == 'wg_mp':
             data = self.filter_server_list(query, '', self.surf.wg_mp_servers)
+            if not data:
+                return [
+                    ExtensionResultItem(
+                        icon=Utils.get_path("images/icon.svg"),
+                        name="WireGuard MultiHop unavailable",
+                        description="Surfshark is not exposing server public keys for MultiHop locations.",
+                        highlightable=False,
+                    )
+                ]
         elif server_type.startswith('mp'):
             server_type = server_type.replace('mp_', '')
             data = self.filter_server_list(query, server_type, self.surf.mp_servers)

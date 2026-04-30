@@ -80,6 +80,11 @@ class Utils:
                 "action": "st_tcp"
             },
             {
+                "name": "MultiHop WireGuard",
+                "description": "Connect to VPN with MultiHop WireGuard",
+                "action": "wg_mp"
+            },
+            {
                 "name": "MultiHop UDP",
                 "description": "Connect to VPN with MultiHop UDP",
                 "action": "mp_udp"
