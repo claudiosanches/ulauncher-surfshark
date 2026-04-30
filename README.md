@@ -11,6 +11,7 @@ Simple [Ulauncher](https://ulauncher.io) extension to quickly toggle and connect
 - **WireGuard Support**: Fully automated WireGuard integration. Just paste your Private Key and connect.
 - **OpenVPN Support**: Support for traditional `.ovpn` profiles with automatic on-demand generation for Static IP and MultiHop servers.
 - **MultiHop Support**: Complete support for Surfshark's MultiHop (Double VPN) servers via OpenVPN.
+- **WireGuard MultiHop Detection**: The `wg_mp` connection type is available, but Surfshark currently does not expose server public keys for MultiHop WireGuard locations through the API used by this extension.
 - **Anti-DNS Leak Technology**: Integrated custom DNS management (supporting `systemd-resolved` and `resolvconf`) to prevent DNS leaks on OpenVPN connections.
 - **Auto-Discovery**: Fetches the latest server list directly from Surfshark's API.
 - **Smart Search**: Supports searching by country, city, and common aliases (e.g., "UK", "UAE", "HK").
@@ -21,7 +22,7 @@ Simple [Ulauncher](https://ulauncher.io) extension to quickly toggle and connect
 
 ## TODO
 
-- [ ] **WireGuard MultiHop**: Support for MultiHop via WireGuard is currently missing.
+- [ ] **WireGuard MultiHop**: The extension is ready to list and connect to WireGuard MultiHop servers if Surfshark starts exposing server public keys for MultiHop locations. Today, those API entries do not include the required server `pubKey`, so OpenVPN remains the supported MultiHop protocol.
 
 ## Installation
 
