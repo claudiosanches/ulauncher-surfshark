@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-04-30
 
 ### Added
+
 - **WireGuard Support**: Fully automated integration with dynamic configuration generation.
 - **MultiHop Support**: Support for Surfshark's MultiHop (Double VPN) servers via OpenVPN.
 - **WireGuard MultiHop Detection**: Prepared the WireGuard MultiHop connection type, but Surfshark currently does not expose the required server public keys for MultiHop WireGuard locations.

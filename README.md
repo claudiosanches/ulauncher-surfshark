@@ -2,7 +2,7 @@
 
 Simple [Ulauncher](https://ulauncher.io) extension to quickly toggle and connect to Surfshark VPN servers using **OpenVPN** or **WireGuard**.
 
-![screenshot](images/screenshot.png)
+![screenshot](images/screenshot.gif)
 
 *Recommendation: If you like the icons in the screenshot, I'm using the [Tela-circle-icon-theme](https://github.com/vinceliuice/Tela-circle-icon-theme) on my machine!*
 
