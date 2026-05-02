@@ -16,9 +16,9 @@ jobs:
 
       - name: Extract Release Notes
         id: extract_notes
+        env:
+          VERSION: ${{ github.ref_name }}
         run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
-
           # Use awk to extract content between the target version and the next header
           # - matches "## [VERSION]" (even if it has a date like " - 2026-04-28")
           # - stops at the next "## ["
@@ -36,5 +36,4 @@ jobs:
           body_path: release_notes.md
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          make_latest: true
