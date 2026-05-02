@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ulauncher-surfshark"
+version = "1.0.0"
+description = "Ulauncher extension to quickly toggle and connect to Surfshark VPN servers."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "GPL-3.0-only"
+authors = [
+    { name = "Claudio Sanches" },
+]
+maintainers = [
+    { name = "Claudio Sanches" },
+]
+keywords = [
+    "surfshark",
+    "ulauncher",
+    "vpn",
+    "openvpn",
+    "wireguard",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Plugins",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Desktop Environment",
+    "Topic :: Internet",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "PyGObject",
+    "requests",
+]
+
+[project.urls]
+Homepage = "https://github.com/claudiosanches/ulauncher-surfshark"
+Repository = "https://github.com/claudiosanches/ulauncher-surfshark"
+Issues = "https://github.com/claudiosanches/ulauncher-surfshark/issues"
+Changelog = "https://github.com/claudiosanches/ulauncher-surfshark/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+py-modules = ["main"]
+packages = ["src"]
+
+[dependency-groups]
+test = [
+    "PyGObject",
+    "pytest",
+    "requests",
+]
