@@ -1,5 +1,7 @@
 # Ulauncher Surfshark
 
+[![CI](https://github.com/claudiosanches/ulauncher-surfshark/actions/workflows/ci.yml/badge.svg)](https://github.com/claudiosanches/ulauncher-surfshark/actions/workflows/ci.yml)
+
 Simple [Ulauncher](https://ulauncher.io) extension to quickly toggle and connect to Surfshark VPN servers using **OpenVPN** or **WireGuard**.
 
 ![screenshot](images/screenshot.gif)
